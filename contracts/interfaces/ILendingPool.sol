@@ -3,6 +3,7 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import {ILendingPoolAddressesProvider} from './ILendingPoolAddressesProvider.sol';
+import {INFTRegistry} from './INFTRegistry.sol';
 import {DataTypes} from '../protocol/libraries/types/DataTypes.sol';
 
 interface ILendingPool {
@@ -403,6 +404,8 @@ interface ILendingPool {
   function getReservesList() external view returns (address[] memory);
 
   function getAddressesProvider() external view returns (ILendingPoolAddressesProvider);
+
+  function getNFTRegistry() external view returns (INFTRegistry);
 
   function setPause(bool val) external;
 

@@ -10,6 +10,8 @@ import {Errors} from '../libraries/helpers/Errors.sol';
 import {VersionedInitializable} from '../libraries/aave-upgradeability/VersionedInitializable.sol';
 import {IncentivizedERC20} from './IncentivizedERC20.sol';
 import {IAaveIncentivesController} from '../../interfaces/IAaveIncentivesController.sol';
+import {IERC721} from '../../dependencies/openzeppelin/contracts/IERC721.sol';
+import {INFTRegistry} from '../../interfaces/INFTRegistry.sol';
 
 /**
  * @title Aave ERC20 AToken
@@ -41,6 +43,7 @@ contract AToken is
   address internal _treasury;
   address internal _underlyingAsset;
   IAaveIncentivesController internal _incentivesController;
+  INFTRegistry internal _NFTRegistry;
 
   modifier onlyLendingPool {
     require(_msgSender() == address(_pool), Errors.CT_CALLER_MUST_BE_LENDING_POOL);
@@ -93,6 +96,7 @@ contract AToken is
     _setDecimals(aTokenDecimals);
 
     _pool = pool;
+    _NFTRegistry = pool.getNFTRegistry();
     _treasury = treasury;
     _underlyingAsset = underlyingAsset;
     _incentivesController = incentivesController;
@@ -127,7 +131,15 @@ contract AToken is
     require(amountScaled != 0, Errors.CT_INVALID_BURN_AMOUNT);
     _burn(user, amountScaled);
 
-    IERC20(_underlyingAsset).safeTransfer(receiverOfUnderlying, amount);
+    if (_NFTRegistry.isAddressNFT(_underlyingAsset)) {
+      IERC721(_NFTRegistry.getContractAddress(_underlyingAsset)).transferFrom(
+        address(this),
+        receiverOfUnderlying,
+        _NFTRegistry.getTokenId(_underlyingAsset)
+      );
+    } else {
+      IERC20(_underlyingAsset).safeTransfer(receiverOfUnderlying, amount);
+    }
 
     emit Transfer(user, address(0), amount);
     emit Burn(user, receiverOfUnderlying, amount, index);
@@ -273,7 +285,7 @@ contract AToken is
   /**
    * @dev Returns the address of the underlying asset of this aToken (E.g. WETH for aWETH)
    **/
-  function UNDERLYING_ASSET_ADDRESS() public override view returns (address) {
+  function UNDERLYING_ASSET_ADDRESS() public view override returns (address) {
     return _underlyingAsset;
   }
 
@@ -311,7 +323,15 @@ contract AToken is
     onlyLendingPool
     returns (uint256)
   {
-    IERC20(_underlyingAsset).safeTransfer(target, amount);
+    if (_NFTRegistry.isAddressNFT(_underlyingAsset)) {
+      IERC721(_NFTRegistry.getContractAddress(_underlyingAsset)).transferFrom(
+        msg.sender,
+        target,
+        _NFTRegistry.getTokenId(_underlyingAsset)
+      );
+    } else {
+      IERC20(_underlyingAsset).safeTransfer(target, amount);
+    }
     return amount;
   }
 

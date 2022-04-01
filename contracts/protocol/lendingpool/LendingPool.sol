@@ -25,6 +25,8 @@ import {ReserveConfiguration} from '../libraries/configuration/ReserveConfigurat
 import {UserConfiguration} from '../libraries/configuration/UserConfiguration.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 import {LendingPoolStorage} from './LendingPoolStorage.sol';
+import {INFTRegistry} from '../../interfaces/INFTRegistry.sol';
+import {IERC721} from '../../dependencies/openzeppelin/contracts/IERC721.sol';
 
 /**
  * @title LendingPool contract
@@ -50,6 +52,16 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
   using SafeERC20 for IERC20;
 
   uint256 public constant LENDINGPOOL_REVISION = 0x2;
+
+  modifier onlyNFTAddress(address addr) {
+    require(_NFTRegistry.isAddressNFT(addr));
+    _;
+  }
+
+  modifier onlyNonNFTAddress(address addr) {
+    require(!_NFTRegistry.isAddressNFT(addr));
+    _;
+  }
 
   modifier whenNotPaused() {
     _whenNotPaused();
@@ -85,6 +97,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
    **/
   function initialize(ILendingPoolAddressesProvider provider) public initializer {
     _addressesProvider = provider;
+    _NFTRegistry = INFTRegistry(_addressesProvider.getNFTRegistry());
     _maxStableRateBorrowSizePercent = 2500;
     _flashLoanPremiumTotal = 9;
     _maxNumberOfReserves = 128;
@@ -116,7 +129,15 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     reserve.updateState();
     reserve.updateInterestRates(asset, aToken, amount, 0);
 
-    IERC20(asset).safeTransferFrom(msg.sender, aToken, amount);
+    if (_NFTRegistry.isAddressNFT(asset)) {
+      IERC721(_NFTRegistry.getContractAddress(asset)).transferFrom(
+        msg.sender,
+        aToken,
+        _NFTRegistry.getTokenId(asset)
+      );
+    } else {
+      IERC20(asset).safeTransferFrom(msg.sender, aToken, amount);
+    }
 
     bool isFirstDeposit = IAToken(aToken).mint(onBehalfOf, amount, reserve.liquidityIndex);
 
@@ -204,7 +225,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     uint256 interestRateMode,
     uint16 referralCode,
     address onBehalfOf
-  ) external override whenNotPaused {
+  ) external override onlyNonNFTAddress(asset) whenNotPaused {
     DataTypes.ReserveData storage reserve = _reserves[asset];
 
     _executeBorrow(
@@ -280,7 +301,13 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
       _usersConfig[onBehalfOf].setBorrowing(reserve.id, false);
     }
 
-    IERC20(asset).safeTransferFrom(msg.sender, aToken, paybackAmount);
+    if (_NFTRegistry.isAddressNFT(asset)) {
+      // This is to avoid stack too deep
+      uint256 tokenId = _NFTRegistry.getTokenId(asset);
+      IERC721(_NFTRegistry.getContractAddress(asset)).transferFrom(msg.sender, aToken, tokenId);
+    } else {
+      IERC20(asset).safeTransferFrom(msg.sender, aToken, paybackAmount);
+    }
 
     IAToken(aToken).handleRepayment(msg.sender, paybackAmount);
 
@@ -499,6 +526,8 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     vars.receiver = IFlashLoanReceiver(receiverAddress);
 
     for (vars.i = 0; vars.i < assets.length; vars.i++) {
+      // Prevent people from flashloaning NFTs
+      require(!_NFTRegistry.isAddressNFT(assets[vars.i]), 'Can only flashloan fungible tokens.');
       aTokenAddresses[vars.i] = _reserves[assets[vars.i]].aTokenAddress;
 
       premiums[vars.i] = amounts[vars.i].mul(_flashLoanPremiumTotal).div(10000);
@@ -531,11 +560,19 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
           0
         );
 
-        IERC20(vars.currentAsset).safeTransferFrom(
-          receiverAddress,
-          vars.currentATokenAddress,
-          vars.currentAmountPlusPremium
-        );
+        if (_NFTRegistry.isAddressNFT(vars.currentAsset)) {
+          IERC721(_NFTRegistry.getContractAddress(vars.currentAsset)).transferFrom(
+            receiverAddress,
+            vars.currentATokenAddress,
+            _NFTRegistry.getTokenId(vars.currentAsset)
+          );
+        } else {
+          IERC20(vars.currentAsset).safeTransferFrom(
+            receiverAddress,
+            vars.currentATokenAddress,
+            vars.currentAmountPlusPremium
+          );
+        }
       } else {
         // If the user chose to not return the funds, the system checks if there is enough collateral and
         // eventually opens a debt position
@@ -706,6 +743,13 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
   }
 
   /**
+   * @dev Returns the cached InterToken connected to this contract
+   **/
+  function getNFTRegistry() external view override returns (INFTRegistry) {
+    return _NFTRegistry;
+  }
+
+  /**
    * @dev Returns the percentage of available liquidity that can be borrowed at once at stable rate
    */
   function MAX_STABLE_RATE_BORROW_SIZE_PERCENT() public view returns (uint256) {
@@ -713,7 +757,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
   }
 
   /**
-   * @dev Returns the fee on flash loans 
+   * @dev Returns the fee on flash loans
    */
   function FLASHLOAN_PREMIUM_TOTAL() public view returns (uint256) {
     return _flashLoanPremiumTotal;

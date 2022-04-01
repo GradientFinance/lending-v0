@@ -85,6 +85,11 @@ interface ILendingPoolConfigurator {
   );
 
   /**
+   * @dev Emitted when an NFT is registered by the protocol
+   **/
+  event RegisteredNFT(address indexed NFTAddress, uint256 indexed tokenId, address registerAddress);
+
+  /**
    * @dev Emitted when stable rate borrowing is enabled on a reserve
    * @param asset The address of the underlying asset of the reserve
    **/

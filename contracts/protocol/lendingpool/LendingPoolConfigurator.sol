@@ -18,6 +18,7 @@ import {IInitializableDebtToken} from '../../interfaces/IInitializableDebtToken.
 import {IInitializableAToken} from '../../interfaces/IInitializableAToken.sol';
 import {IAaveIncentivesController} from '../../interfaces/IAaveIncentivesController.sol';
 import {ILendingPoolConfigurator} from '../../interfaces/ILendingPoolConfigurator.sol';
+import {INFTRegistry} from '../../interfaces/INFTRegistry.sol';
 
 /**
  * @title LendingPoolConfigurator contract
@@ -32,6 +33,14 @@ contract LendingPoolConfigurator is VersionedInitializable, ILendingPoolConfigur
 
   ILendingPoolAddressesProvider internal addressesProvider;
   ILendingPool internal pool;
+  INFTRegistry internal NFTRegistry;
+  address internal NFTaTokenImpl;
+  address internal NFTstableDebtTokenImpl;
+  address internal NFTvariableDebtTokenImpl;
+  address internal NFTinterestRateStrategyAddress;
+  address internal NFTTreasury;
+  address internal NFTIncentivesController;
+  string internal NFTParams;
 
   modifier onlyPoolAdmin {
     require(addressesProvider.getPoolAdmin() == msg.sender, Errors.CALLER_NOT_POOL_ADMIN);
@@ -55,6 +64,14 @@ contract LendingPoolConfigurator is VersionedInitializable, ILendingPoolConfigur
   function initialize(ILendingPoolAddressesProvider provider) public initializer {
     addressesProvider = provider;
     pool = ILendingPool(addressesProvider.getLendingPool());
+    NFTRegistry = INFTRegistry(addressesProvider.getNFTRegistry());
+    NFTaTokenImpl = addressesProvider.getAddress('NFT_ATOKEN_IMPL');
+    NFTstableDebtTokenImpl = addressesProvider.getAddress('NFT_STABLE_DEBT_TOKEN_IMPL');
+    NFTvariableDebtTokenImpl = addressesProvider.getAddress('NFT_VARIABLE_DEBT_TOKEN_IMPL');
+    NFTinterestRateStrategyAddress = addressesProvider.getAddress('NFT_INTEREST_RATE_STRATEGY');
+    NFTTreasury = addressesProvider.getAddress('NFT_TREASURY');
+    NFTIncentivesController = addressesProvider.getAddress('NFT_INCENTIVES_CONTROLLER');
+    NFTParams = '0x10';
   }
 
   /**
@@ -141,6 +158,90 @@ contract LendingPoolConfigurator is VersionedInitializable, ILendingPoolConfigur
     );
   }
 
+  function initNFTReserve(address NFTaddress, uint256 tokenId) external returns (address) {
+    require(!NFTRegistry.isNFTRegistered(NFTaddress, tokenId), 'NFT has already been registered.');
+
+    address newAssetAddress = NFTRegistry.register(NFTaddress, tokenId);
+
+    address aTokenProxyAddress =
+      _initTokenWithProxy(
+        NFTaTokenImpl,
+        abi.encodeWithSelector(
+          IInitializableAToken.initialize.selector,
+          pool,
+          NFTTreasury,
+          newAssetAddress,
+          IAaveIncentivesController(NFTIncentivesController),
+          0,
+          'Gradient NFT for CryptoPunk #9998',
+          'gNFT',
+          NFTParams
+        )
+      );
+
+    address stableDebtTokenProxyAddress =
+      _initTokenWithProxy(
+        NFTstableDebtTokenImpl,
+        abi.encodeWithSelector(
+          IInitializableDebtToken.initialize.selector,
+          pool,
+          newAssetAddress,
+          IAaveIncentivesController(NFTIncentivesController),
+          0,
+          'Variable Debt NFT for CryptoPunk #9998',
+          'vdNFT',
+          NFTParams
+        )
+      );
+
+    address variableDebtTokenProxyAddress =
+      _initTokenWithProxy(
+        NFTvariableDebtTokenImpl,
+        abi.encodeWithSelector(
+          IInitializableDebtToken.initialize.selector,
+          pool,
+          newAssetAddress,
+          IAaveIncentivesController(NFTIncentivesController),
+          0,
+          'Stable Debt NFT for CryptoPunk #9998',
+          'sdNFT',
+          NFTParams
+        )
+      );
+
+    pool.initReserve(
+      newAssetAddress,
+      aTokenProxyAddress,
+      stableDebtTokenProxyAddress,
+      variableDebtTokenProxyAddress,
+      NFTinterestRateStrategyAddress
+    );
+
+    DataTypes.ReserveConfigurationMap memory currentConfig = pool.getConfiguration(newAssetAddress);
+
+    currentConfig.setDecimals(0);
+
+    currentConfig.setActive(true);
+    currentConfig.setFrozen(false);
+
+    pool.setConfiguration(newAssetAddress, currentConfig.data);
+
+    emit ReserveInitialized(
+      newAssetAddress,
+      aTokenProxyAddress,
+      stableDebtTokenProxyAddress,
+      variableDebtTokenProxyAddress,
+      NFTinterestRateStrategyAddress
+    );
+
+    configureReserveAsCollateral(newAssetAddress, 8000, 8250, 10500);
+    //setReserveFactor(newAssetAddress, 1000);
+
+    emit RegisteredNFT(NFTaddress, tokenId, newAssetAddress);
+
+    return newAssetAddress;
+  }
+
   /**
    * @dev Updates the aToken implementation for the reserve
    **/
@@ -151,7 +252,8 @@ contract LendingPoolConfigurator is VersionedInitializable, ILendingPoolConfigur
 
     (, , , uint256 decimals, ) = cachedPool.getConfiguration(input.asset).getParamsMemory();
 
-    bytes memory encodedCall = abi.encodeWithSelector(
+    bytes memory encodedCall =
+      abi.encodeWithSelector(
         IInitializableAToken.initialize.selector,
         cachedPool,
         input.treasury,
@@ -163,11 +265,7 @@ contract LendingPoolConfigurator is VersionedInitializable, ILendingPoolConfigur
         input.params
       );
 
-    _upgradeTokenImplementation(
-      reserveData.aTokenAddress,
-      input.implementation,
-      encodedCall
-    );
+    _upgradeTokenImplementation(reserveData.aTokenAddress, input.implementation, encodedCall);
 
     emit ATokenUpgraded(input.asset, reserveData.aTokenAddress, input.implementation);
   }
@@ -179,10 +277,11 @@ contract LendingPoolConfigurator is VersionedInitializable, ILendingPoolConfigur
     ILendingPool cachedPool = pool;
 
     DataTypes.ReserveData memory reserveData = cachedPool.getReserveData(input.asset);
-     
+
     (, , , uint256 decimals, ) = cachedPool.getConfiguration(input.asset).getParamsMemory();
 
-    bytes memory encodedCall = abi.encodeWithSelector(
+    bytes memory encodedCall =
+      abi.encodeWithSelector(
         IInitializableDebtToken.initialize.selector,
         cachedPool,
         input.asset,
@@ -209,17 +308,15 @@ contract LendingPoolConfigurator is VersionedInitializable, ILendingPoolConfigur
   /**
    * @dev Updates the variable debt token implementation for the asset
    **/
-  function updateVariableDebtToken(UpdateDebtTokenInput calldata input)
-    external
-    onlyPoolAdmin
-  {
+  function updateVariableDebtToken(UpdateDebtTokenInput calldata input) external onlyPoolAdmin {
     ILendingPool cachedPool = pool;
 
     DataTypes.ReserveData memory reserveData = cachedPool.getReserveData(input.asset);
 
     (, , , uint256 decimals, ) = cachedPool.getConfiguration(input.asset).getParamsMemory();
 
-    bytes memory encodedCall = abi.encodeWithSelector(
+    bytes memory encodedCall =
+      abi.encodeWithSelector(
         IInitializableDebtToken.initialize.selector,
         cachedPool,
         input.asset,
@@ -289,7 +386,7 @@ contract LendingPoolConfigurator is VersionedInitializable, ILendingPoolConfigur
     uint256 ltv,
     uint256 liquidationThreshold,
     uint256 liquidationBonus
-  ) external onlyPoolAdmin {
+  ) public onlyPoolAdmin {
     DataTypes.ReserveConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
     //validation of the parameters: the LTV can

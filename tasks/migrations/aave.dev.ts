@@ -23,6 +23,9 @@ task('aave:dev', 'Deploy development enviroment')
     console.log('2. Deploy address provider');
     await localBRE.run('dev:deploy-address-provider', { verify });
 
+    console.log('3. Deploy NFT system');
+    await localBRE.run('dev:deploy-nft-system', { verify, pool: POOL_NAME });
+
     console.log('3. Deploy lending pool');
     await localBRE.run('dev:deploy-lending-pool', { verify, pool: POOL_NAME });
 

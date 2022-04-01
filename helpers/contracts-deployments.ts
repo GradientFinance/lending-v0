@@ -12,6 +12,7 @@ import {
   eEthereumNetwork,
 } from './types';
 import { MintableERC20 } from '../types/MintableERC20';
+import { MintableERC721 } from '../types/MintableERC721';
 import { MockContract } from 'ethereum-waffle';
 import { ConfigNames, getReservesConfigByPool, loadPoolConfig } from './configuration';
 import { getFirstSigner } from './contracts-getters';
@@ -55,6 +56,8 @@ import {
   UiPoolDataProviderV2V3Factory,
   UiIncentiveDataProviderV2V3,
   UiIncentiveDataProviderV2Factory,
+  NFTRegistryFactory,
+  MintableERC721Factory,
 } from '../types';
 import {
   withSaveAndVerify,
@@ -789,5 +792,25 @@ export const deployParaSwapLiquiditySwapAdapter = async (
     await new ParaSwapLiquiditySwapAdapterFactory(await getFirstSigner()).deploy(...args),
     eContractid.ParaSwapLiquiditySwapAdapter,
     args,
+    verify
+  );
+
+export const deployNFTRegistry = async (verify?: boolean) =>
+  withSaveAndVerify(
+    await new NFTRegistryFactory(await getFirstSigner()).deploy(),
+    eContractid.NFTRegistry,
+    [],
+    verify
+  );
+
+export const deployMintableERC721 = async (
+  name: string,
+  symbol: string,
+  verify?: boolean
+): Promise<MintableERC721> =>
+  withSaveAndVerify(
+    await new MintableERC721Factory(await getFirstSigner()).deploy(name, symbol),
+    eContractid.MintableERC721,
+    [name, symbol],
     verify
   );

@@ -6,6 +6,7 @@ import {ReserveConfiguration} from '../libraries/configuration/ReserveConfigurat
 import {ReserveLogic} from '../libraries/logic/ReserveLogic.sol';
 import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
+import {INFTRegistry} from '../../interfaces/INFTRegistry.sol';
 
 contract LendingPoolStorage {
   using ReserveLogic for DataTypes.ReserveData;
@@ -13,6 +14,7 @@ contract LendingPoolStorage {
   using UserConfiguration for DataTypes.UserConfigurationMap;
 
   ILendingPoolAddressesProvider internal _addressesProvider;
+  INFTRegistry internal _NFTRegistry;
 
   mapping(address => DataTypes.ReserveData) internal _reserves;
   mapping(address => DataTypes.UserConfigurationMap) internal _usersConfig;

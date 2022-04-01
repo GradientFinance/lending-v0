@@ -32,8 +32,9 @@ import {
   authorizeWETHGateway,
   deployATokenImplementations,
   deployAaveOracle,
+  deployNFTRegistry,
 } from '../../helpers/contracts-deployments';
-import { Signer } from 'ethers';
+import { Signer, utils } from 'ethers';
 import { TokenContractId, eContractid, tEthereumAddress, AavePools } from '../../helpers/types';
 import { MintableERC20 } from '../../types/MintableERC20';
 import {
@@ -54,9 +55,13 @@ import { initReservesByHelper, configureReservesByHelper } from '../../helpers/i
 import AaveConfig from '../../markets/aave';
 import { oneEther, ZERO_ADDRESS } from '../../helpers/constants';
 import {
+  getAToken,
+  getInterestRateStrategy,
   getLendingPool,
   getLendingPoolConfiguratorProxy,
   getPairsTokenAggregator,
+  getStableDebtToken,
+  getVariableDebtToken,
 } from '../../helpers/contracts-getters';
 import { WETH9Mocked } from '../../types/WETH9Mocked';
 
@@ -107,6 +112,9 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   };
   const addressesProvider = await deployLendingPoolAddressesProvider(AaveConfig.MarketId);
   await waitForTx(await addressesProvider.setPoolAdmin(aaveAdmin));
+
+  const NFTRegistry = await deployNFTRegistry();
+  await waitForTx(await addressesProvider.setNFTRegistry(NFTRegistry.address));
 
   //setting users[1] as emergency admin, which is in position 2 in the DRE addresses list
   const addressList = await getEthersSignersAddresses();
@@ -306,6 +314,57 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
 
   const gateWay = await deployWETHGateway([mockTokens.WETH.address]);
   await authorizeWETHGateway(gateWay.address, lendingPoolAddress);
+
+  await waitForTx(
+    await addressesProvider.setAddress(
+      utils.formatBytes32String('NFT_ATOKEN_IMPL'),
+      (
+        await getAToken()
+      ).address
+    )
+  );
+
+  await waitForTx(
+    await addressesProvider.setAddress(
+      utils.formatBytes32String('NFT_STABLE_DEBT_TOKEN_IMPL'),
+      (
+        await getStableDebtToken()
+      ).address
+    )
+  );
+
+  await waitForTx(
+    await addressesProvider.setAddress(
+      utils.formatBytes32String('NFT_VARIABLE_DEBT_TOKEN_IMPL'),
+      (
+        await getVariableDebtToken()
+      ).address
+    )
+  );
+
+  await waitForTx(
+    await addressesProvider.setAddress(
+      utils.formatBytes32String('NFT_INTEREST_RATE_STRATEGY'),
+      (
+        await getInterestRateStrategy()
+      ).address
+    )
+  );
+
+  await waitForTx(
+    await addressesProvider.setAddress(
+      utils.formatBytes32String('NFT_TREASURY'),
+      await getTreasuryAddress(AaveConfig)
+    )
+  );
+
+  const incentivesControllerAddress = '0x0000000000000000000000000000000000000000';
+  await waitForTx(
+    await addressesProvider.setAddress(
+      utils.formatBytes32String('NFT_INCENTIVES_CONTROLLER'),
+      incentivesControllerAddress
+    )
+  );
 
   console.timeEnd('setup');
 };

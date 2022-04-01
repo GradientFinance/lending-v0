@@ -8,6 +8,7 @@ import {PercentageMath} from '../libraries/math/PercentageMath.sol';
 import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
 import {ILendingRateOracle} from '../../interfaces/ILendingRateOracle.sol';
 import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
+import {INFTRegistry} from '../../interfaces/INFTRegistry.sol';
 
 /**
  * @title DefaultReserveInterestRateStrategy contract
@@ -38,6 +39,7 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
   uint256 public immutable EXCESS_UTILIZATION_RATE;
 
   ILendingPoolAddressesProvider public immutable addressesProvider;
+  INFTRegistry internal immutable _NFTRegistry;
 
   // Base variable borrow rate when Utilization rate = 0. Expressed in ray
   uint256 internal immutable _baseVariableBorrowRate;
@@ -66,6 +68,7 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
     OPTIMAL_UTILIZATION_RATE = optimalUtilizationRate;
     EXCESS_UTILIZATION_RATE = WadRayMath.ray().sub(optimalUtilizationRate);
     addressesProvider = provider;
+    _NFTRegistry = INFTRegistry(provider.getNFTRegistry());
     _baseVariableBorrowRate = baseVariableBorrowRate;
     _variableRateSlope1 = variableRateSlope1;
     _variableRateSlope2 = variableRateSlope2;
@@ -127,7 +130,13 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
       uint256
     )
   {
-    uint256 availableLiquidity = IERC20(reserve).balanceOf(aToken);
+    uint256 availableLiquidity = 0;
+    if (_NFTRegistry.isAddressNFT(reserve)) {
+      availableLiquidity = IERC20(aToken).totalSupply() != 0 ? 1 : 0;
+    } else {
+      availableLiquidity = IERC20(reserve).balanceOf(aToken);
+    }
+
     //avoid stack too deep
     availableLiquidity = availableLiquidity.add(liquidityAdded).sub(liquidityTaken);
 

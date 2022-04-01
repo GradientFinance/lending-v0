@@ -2,7 +2,8 @@
 pragma solidity 0.6.12;
 
 import {Ownable} from '../../dependencies/openzeppelin/contracts/Ownable.sol';
-
+import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
+import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
 // Prettier ignore to prevent buidler flatter bug
 // prettier-ignore
 import {InitializableImmutableAdminUpgradeabilityProxy} from '../libraries/aave-upgradeability/InitializableImmutableAdminUpgradeabilityProxy.sol';
@@ -17,6 +18,7 @@ import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddres
  * @author Aave
  **/
 contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider {
+  using SafeERC20 for IERC20;
   string private _marketId;
   mapping(bytes32 => address) private _addresses;
 
@@ -27,6 +29,17 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
   bytes32 private constant LENDING_POOL_COLLATERAL_MANAGER = 'COLLATERAL_MANAGER';
   bytes32 private constant PRICE_ORACLE = 'PRICE_ORACLE';
   bytes32 private constant LENDING_RATE_ORACLE = 'LENDING_RATE_ORACLE';
+
+  bytes32 private constant INTERTOKEN = 'INTERTOKEN';
+  bytes32 private constant SPOT_VAULT_FACTORY = 'SPOT_VAULT_FACTORY';
+  bytes32 private constant NFT_REGISTRY = 'NFT_REGISTRY';
+  bytes32 private constant NFT_ATOKEN_IMPL = 'NFT_ATOKEN_IMPL';
+  bytes32 private constant NFT_STABLE_DEBT_TOKEN_IMPL = 'NFT_STABLE_DEBT_TOKEN_IMPL';
+  bytes32 private constant NFT_VARIABLE_DEBT_TOKEN_IMPL = 'NFT_VARIABLE_DEBT_TOKEN_IMPL';
+  bytes32 private constant NFT_INTEREST_RATE_STRATEGY = 'NFT_INTEREST_RATE_STRATEGY';
+  bytes32 private constant NFT_TREASURY = 'NFT_TREASURY';
+  bytes32 private constant NFT_INCENTIVES_CONTROLLER = 'NFT_INCENTIVES_CONTROLLER';
+  bytes32 private constant NFTParams = 'NFT_PARAMS';
 
   constructor(string memory marketId) public {
     _setMarketId(marketId);
@@ -180,6 +193,24 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
   function setLendingRateOracle(address lendingRateOracle) external override onlyOwner {
     _addresses[LENDING_RATE_ORACLE] = lendingRateOracle;
     emit LendingRateOracleUpdated(lendingRateOracle);
+  }
+
+  function getSpotVaultFactory() external view override returns (address) {
+    return getAddress(SPOT_VAULT_FACTORY);
+  }
+
+  function setSpotVaultFactory(address spot_vault_factory) external override onlyOwner {
+    _addresses[SPOT_VAULT_FACTORY] = spot_vault_factory;
+    //emit LendingRateOracleUpdated(lendingRateOracle);
+  }
+
+  function getNFTRegistry() external view override returns (address) {
+    return getAddress(NFT_REGISTRY);
+  }
+
+  function setNFTRegistry(address NFTRegistry) external override onlyOwner {
+    _addresses[NFT_REGISTRY] = NFTRegistry;
+    emit NFTRegistryUpdated(NFTRegistry);
   }
 
   /**

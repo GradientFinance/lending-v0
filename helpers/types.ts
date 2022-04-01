@@ -102,6 +102,9 @@ export enum eContractid {
   ParaSwapLiquiditySwapAdapter = 'ParaSwapLiquiditySwapAdapter',
   UiIncentiveDataProviderV2V3 = 'UiIncentiveDataProviderV2V3',
   UiIncentiveDataProviderV2 = 'UiIncentiveDataProviderV2',
+  NFTRegistry = 'NFTRegistry',
+  IERC721Detailed = 'IERC721Detailed',
+  MintableERC721 = 'MintableERC721',
 }
 
 /*

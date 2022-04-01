@@ -18,6 +18,7 @@ import {Errors} from '../libraries/helpers/Errors.sol';
 import {ValidationLogic} from '../libraries/logic/ValidationLogic.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 import {LendingPoolStorage} from './LendingPoolStorage.sol';
+import {IERC721} from '../../dependencies/openzeppelin/contracts/IERC721.sol';
 
 /**
  * @title LendingPoolCollateralManager contract
@@ -150,8 +151,14 @@ contract LendingPoolCollateralManager is
     // If the liquidator reclaims the underlying asset, we make sure there is enough available liquidity in the
     // collateral reserve
     if (!receiveAToken) {
-      uint256 currentAvailableCollateral =
-        IERC20(collateralAsset).balanceOf(address(vars.collateralAtoken));
+      uint256 currentAvailableCollateral = 0;
+      if (_NFTRegistry.isAddressNFT(collateralAsset)) {
+        currentAvailableCollateral = 1;
+      } else {
+        currentAvailableCollateral = IERC20(collateralAsset).balanceOf(
+          address(vars.collateralAtoken)
+        );
+      }
       if (currentAvailableCollateral < vars.maxCollateralToLiquidate) {
         return (
           uint256(Errors.CollateralManagerErrors.NOT_ENOUGH_LIQUIDITY),

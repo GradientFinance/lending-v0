@@ -19,6 +19,8 @@ interface ILendingPoolAddressesProvider {
   event LendingRateOracleUpdated(address indexed newAddress);
   event ProxyCreated(bytes32 id, address indexed newAddress);
   event AddressSet(bytes32 id, address indexed newAddress, bool hasProxy);
+  event SpotVaultFactoryUpdated(address indexed newAddress);
+  event NFTRegistryUpdated(address indexed newAddress);
 
   function getMarketId() external view returns (string memory);
 
@@ -57,4 +59,12 @@ interface ILendingPoolAddressesProvider {
   function getLendingRateOracle() external view returns (address);
 
   function setLendingRateOracle(address lendingRateOracle) external;
+
+  function getSpotVaultFactory() external view returns (address);
+
+  function setSpotVaultFactory(address registry) external;
+
+  function getNFTRegistry() external view returns (address);
+
+  function setNFTRegistry(address registry) external;
 }
