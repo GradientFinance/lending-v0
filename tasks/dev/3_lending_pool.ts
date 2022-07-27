@@ -12,9 +12,11 @@ import {
   getLendingPoolAddressesProvider,
   getLendingPool,
   getLendingPoolConfiguratorProxy,
+  getAToken,
 } from '../../helpers/contracts-getters';
 import { insertContractAddressInDb } from '../../helpers/contracts-helpers';
 import { ConfigNames, loadPoolConfig } from '../../helpers/configuration';
+import { utils } from 'ethers';
 
 task('dev:deploy-lending-pool', 'Deploy lending pool for dev enviroment')
   .addFlag('verify', 'Verify contracts at Etherscan')
@@ -33,6 +35,17 @@ task('dev:deploy-lending-pool', 'Deploy lending pool for dev enviroment')
     const lendingPoolProxy = await getLendingPool(address);
 
     await insertContractAddressInDb(eContractid.LendingPool, lendingPoolProxy.address);
+
+    await deployATokenImplementations(pool, poolConfig.ReservesConfig, verify);
+
+    await waitForTx(
+      await addressesProvider.setAddress(
+        utils.formatBytes32String('NFT_ATOKEN_IMPL'),
+        (
+          await getAToken()
+        ).address
+      )
+    );
 
     const lendingPoolConfiguratorImpl = await deployLendingPoolConfigurator(verify);
 
@@ -58,5 +71,4 @@ task('dev:deploy-lending-pool', 'Deploy lending pool for dev enviroment')
       [lendingPoolProxy.address, addressesProvider.address, lendingPoolConfiguratorProxy.address],
       verify
     );
-    await deployATokenImplementations(pool, poolConfig.ReservesConfig, verify);
   });

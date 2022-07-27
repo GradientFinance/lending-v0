@@ -1,25 +1,12 @@
-pragma solidity 0.6.12;
+pragma solidity ^0.6.12;
 
-import {IERC721} from '../dependencies/openzeppelin/contracts/IERC721.sol';
-
-/// @title IVaultFactory interface
-/// @notice Interface for the Vault factory of Abacus Spot
 interface IVaultFactory {
-  //mapping(address => mapping(uint256 => uint256)) public nextVaultIndex;
+  function getVaultAddress(address nft, uint256 id) external view returns (address vaultAddress);
 
-  function addToEarlyMemberWhitelist(address _earlyAccess) external;
-
-  function addToCollectionWhitelist(address _collection) external;
-
-  function setAdmin(address _admin) external;
-
-  function setController(address _controller) external;
-
-  function createVault(
-    string memory _name,
-    string memory _symbol,
-    IERC721 _heldToken,
-    uint256 _heldTokenId
+  function emitEmissionSigning(
+    address _callerToken,
+    uint256 _callerId,
+    address _signer
   ) external;
 
   function emitTokenPurchase(
@@ -35,14 +22,19 @@ interface IVaultFactory {
     address _callerToken,
     uint256 _callerId,
     address _seller,
-    uint256[] memory tickets,
-    uint256 desiredCredits
+    uint256 ticket
+  ) external;
+
+  function emitSaleComplete(
+    address _callerToken,
+    uint256 _callerId,
+    address _seller,
+    uint256 creditsPurchased
   ) external;
 
   function emitFeeRedemption(
     address _callerToken,
     uint256 _callerId,
-    uint256 toTreasury,
     uint256 toVeHolders
   ) external;
 
@@ -50,6 +42,15 @@ interface IVaultFactory {
     address _callerToken,
     uint256 _callerId,
     uint256 _finalVal,
+    address _closePoolContract,
+    address _vault
+  ) external;
+
+  function emitNewBid(
+    address _callerToken,
+    uint256 _callerId,
+    uint256 _bid,
+    address _bidder,
     address _closePoolContract,
     address _vault
   ) external;

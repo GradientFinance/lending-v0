@@ -41,6 +41,8 @@ export const seedEthLiquidity = async (amountInETH: string) => {
   const signer = await getFirstSigner();
   const amount = ethers.utils.parseUnits(amountInETH);
 
+  //const WETH = await contractGetters.getMintableERC20(0xD6C850aeBFDC46D7F4c207e445cC0d6B0919BDBe)
+
   const lendingPool = await getLendingPool();
   const WETH = await getMintableERC20(
     (

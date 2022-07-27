@@ -36,15 +36,6 @@ task('dev:deploy-nft-system', 'Deploy the NFT system for dev enviroment')
 
     await waitForTx(
       await addressesProvider.setAddress(
-        utils.formatBytes32String('NFT_ATOKEN_IMPL'),
-        (
-          await getAToken()
-        ).address
-      )
-    );
-
-    await waitForTx(
-      await addressesProvider.setAddress(
         utils.formatBytes32String('NFT_STABLE_DEBT_TOKEN_IMPL'),
         (
           await getStableDebtToken()

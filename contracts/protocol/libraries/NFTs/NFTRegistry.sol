@@ -5,13 +5,14 @@ pragma experimental ABIEncoderV2;
 import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.sol';
 import {ReserveConfiguration} from '../configuration/ReserveConfiguration.sol';
 import {ILendingPoolAddressesProvider} from '../../../interfaces/ILendingPoolAddressesProvider.sol';
-import {IVaultFactory} from '../../../interfaces/IVaultFactory.sol';
 import {INFTRegistry} from '../../../interfaces/INFTRegistry.sol';
 import {IERC20Detailed} from '../../../dependencies/openzeppelin/contracts/IERC20Detailed.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {PercentageMath} from '../math/PercentageMath.sol';
 import {DataTypes} from '../types/DataTypes.sol';
 import {NFTvault} from './NFTvault.sol';
+import {IVaultFactory} from '../../../interfaces/IVaultFactory.sol';
+import {IVault} from '../../../interfaces/IVault.sol';
 
 /**
  * @title NFTRegistry contract
@@ -98,5 +99,47 @@ contract NFTRegistry is INFTRegistry {
   function getVault(address token, uint256 id) internal returns (address vault) {
     return address(0);
     //return vaultFactory.nftVault[vaultFactory.nextVaultIndex[token][id] - 1][address][id];
+  }
+
+  function expiringPosition(
+    address nftAddress,
+    uint256 nftId,
+    address user,
+    uint256[] calldata tickets
+  ) internal view returns (uint256 size, uint256 timeUnlock) {
+    size = 0;
+    address vaultAddress = IVaultFactory(nftAddress).getVaultAddress(nftAddress, nftId); // here we would need to change the IVaultFactory
+    IVault vault = IVault(vaultAddress);
+
+    (, timeUnlock) = vault.getUserPositionInfo(user);
+
+    for (uint256 i = 0; i < tickets.length; i++) {
+      bool ticketQueued;
+      uint256 tokensOwnedPerTicket;
+      (tokensOwnedPerTicket, , ticketQueued, ) = vault.getTicketsOwned(user, tickets[i]);
+
+      if (!ticketQueued) {
+        size += tokensOwnedPerTicket;
+      }
+    }
+  }
+
+  function getTotalExpiring(
+    uint32 liquidationTimeDifference,
+    address nftAddress,
+    uint256 nftId,
+    address[] calldata users,
+    uint256[][] calldata tickets
+  ) external view returns (uint256 total) {
+    total = 0;
+    for (uint256 i = 0; i < users.length; i++) {
+      (uint256 size, uint256 timeUnlock) =
+        expiringPosition(nftAddress, nftId, users[i], tickets[i]);
+      bool liquidatable = timeUnlock - block.timestamp <= liquidationTimeDifference;
+
+      if (liquidatable) {
+        total += size;
+      }
+    }
   }
 }
